@@ -2,13 +2,14 @@ package com.github.pierremage.downloader
 
 import java.io.{File, InputStream}
 import java.net.URI
-import java.nio.file.{CopyOption, Files, Path}
+import java.nio.file.Path
 
+import com.github.pierremage._
 import org.apache.commons.vfs2.VFS
 import org.slf4j.LoggerFactory
 
 import scala.collection.GenSet
-import scala.util.{Failure, Try}
+import scala.util.{Failure, Success, Try}
 
 object Downloader {
 
@@ -17,24 +18,18 @@ object Downloader {
   /**
    * See <a href="https://commons.apache.org/proper/commons-vfs/filesystems.html">Commons-VFS Supported File Systems</a>
    */
-  def download(outputPath: Path, uris: GenSet[URI]): Unit =
-    uris.foreach { uri =>
-      Try(copy(uri.inputStream(), outputPath.resolve(uri.fileName))) match {
+  def download(outputPath: Path, uris: GenSet[URI]): (GenSet[URI], GenSet[Path]) =
+    uris.map { uri =>
+      val targetPath = outputPath.resolve(uri.fileName)
+      Try(copy(uri.inputStream(), targetPath)) match {
         case Failure(e) =>
           log.error(s"Failed to download $uri: ${e.getMessage}")
-        case _ =>
-          log.debug(s"Downloaded {}", uri)
+          Left(uri)
+        case Success(_) =>
+          Right(targetPath)
       }
-    }
-
-  def copy(in: => InputStream, target: Path, options: CopyOption*): Long =
-    using(in)(Files.copy(_, target, options: _*))
-
-  def using[A <: AutoCloseable, B](a: A)(f: A => B): B =
-    try {
-      f(a)
-    } finally {
-      a.close()
+    }.partition(_.isLeft) match {
+      case (us, ps) => (us.map(_.left.get), ps.map(_.right.get))
     }
 
   implicit class RichUri(uri: URI) {
