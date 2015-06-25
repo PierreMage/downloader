@@ -20,7 +20,7 @@ class RichUriTest extends FlatSpec with Matchers {
   }
 
   "RichUri.inputStream()" should "return inputStream when scheme is known" in {
-    val uri = ClassLoader.getSystemResource("foo.txt").toURI
+    val uri = this.getClass.getResource("/foo.txt").toURI
     Source.fromInputStream(uri.inputStream()).mkString shouldBe "bar"
   }
 
